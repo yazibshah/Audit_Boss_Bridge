@@ -26,7 +26,8 @@ import { L1Vault } from "./L1Vault.sol";
 
 contract L1BossBridge is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
- 
+    
+    // @audit-info should be constant 
     uint256 public DEPOSIT_LIMIT = 100_000 ether; // e depositing tokens, you can't do too many.
 
     IERC20 public immutable token; // e 1 bridge per token(L1BossBridge)
@@ -50,9 +51,7 @@ contract L1BossBridge is Ownable, Pausable, ReentrancyGuard {
         _pause();
     }
 
-    function unpause() external onlyOwner {
-        _unpause();
-    }
+    
 
     // q hey what happens if we disable an account mid-flight.
     function setSigner(address account, bool enabled) external onlyOwner {
@@ -78,6 +77,7 @@ contract L1BossBridge is Ownable, Pausable, ReentrancyGuard {
         token.safeTransferFrom(from, address(vault), amount);
 
         // Our off-chain service picks up this event and mints the corresponding tokens on L2
+        // @audit-info should follow CEI. it should before -> token.safeTransferFrom(from, address(vault), amount);
         emit Deposit(from, l2Recipient, amount);
     }
 
@@ -122,6 +122,7 @@ contract L1BossBridge is Ownable, Pausable, ReentrancyGuard {
 
         (address target, uint256 value, bytes memory data) = abi.decode(message, (address, uint256, bytes));
 
+        // q slither said this is bad, is that ok?
         (bool success,) = target.call{ value: value }(data);
         if (!success) {
             revert L1BossBridge__CallFailed();
